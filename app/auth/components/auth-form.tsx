@@ -49,7 +49,7 @@ function setUserFromResponse(
 
 export function AuthForm({ className, typeForm = "login", ...props }: AuthProps) {
   const setUser = useAuthStore((s) => s.setUser)
-  const createAuthor = trpc.createAuthor.useMutation()
+  const createAuthor = trpc.author.create.useMutation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"

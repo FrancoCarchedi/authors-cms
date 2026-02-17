@@ -4,6 +4,32 @@ import { authorsCol } from "@/app/models/collections/authors.collection";
 import type { Author } from "@/app/models/interfaces/author.interface";
 
 export const authorRouter = router({
+  /** Create an author profile for a newly registered user */
+  create: protectedProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        name: z.string(),
+        avatarUrl: z.string().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const col = await authorsCol();
+      const now = new Date();
+      const result = await col.insertOne({
+        user: {
+          id: input.userId,
+          name: input.name,
+          avatarUrl: input.avatarUrl ?? null,
+        },
+        totalArticles: 0,
+        publishedArticles: 0,
+        createdAt: now,
+        updatedAt: now,
+      } as Author);
+      return { authorId: result.insertedId.toHexString() };
+    }),
+
   /** Paginated list of all authors with optional name search */
   list: protectedProcedure
     .input(
