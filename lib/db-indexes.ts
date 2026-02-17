@@ -1,58 +1,32 @@
 import { Db, IndexSpecification } from "mongodb";
 
-/**
- * Definición de índices para la colección de usuarios
- */
 const userIndexes: { spec: IndexSpecification; options?: object }[] = [
   {
     spec: { email: 1 },
     options: { unique: true, name: "email_unique" },
   },
-  {
-    spec: { createdAt: -1 },
-    options: { name: "created_at_desc" },
-  },
 ];
 
-/**
- * Definición de índices para la colección de autores
- */
 const authorIndexes: { spec: IndexSpecification; options?: object }[] = [
   {
     spec: { "user.id": 1 },
     options: { unique: true, name: "user_id_unique" },
   },
   {
-    spec: { publishedArticles: -1 },
-    options: { name: "published_articles_desc" },
-  },
-  {
     spec: { "user.name": 1 },
     options: { name: "user_name_index" },
   },
-  {
-    spec: { createdAt: -1 },
-    options: { name: "created_at_desc" },
-  },
 ];
 
-/**
- * Definición de índices para la colección de artículos
- */
 const articleIndexes: { spec: IndexSpecification; options?: object }[] = [
   {
     spec: { slug: 1 },
     options: { unique: true, name: "slug_unique" },
   },
   {
-    // Índice compuesto para queries comunes: listar artículos de un autor
-    spec: { authorId: 1, isPublished: 1, createdAt: -1 },
-    options: { name: "author_published_created" },
-  },
-  {
-    // Índice para filtrar por estado de publicación
-    spec: { isPublished: 1, createdAt: -1 },
-    options: { name: "published_created" },
+    // Índice compuesto: listar artículos de un autor ordenados por fecha
+    spec: { authorId: 1, createdAt: -1 },
+    options: { name: "author_created" },
   },
   {
     // Índice de texto para búsqueda full-text
@@ -71,19 +45,8 @@ const articleIndexes: { spec: IndexSpecification; options?: object }[] = [
       default_language: "spanish",
     },
   },
-  {
-    spec: { authorId: 1 },
-    options: { name: "author_id_index" },
-  },
-  {
-    spec: { createdAt: -1 },
-    options: { name: "created_at_desc" },
-  },
 ];
 
-/**
- * Crea todos los índices para una colección específica
- */
 async function createCollectionIndexes(
   db: Db,
   collectionName: string,
@@ -107,9 +70,6 @@ async function createCollectionIndexes(
   }
 }
 
-/**
- * Crea todos los índices necesarios en la base de datos
- */
 export async function createAllIndexes(db: Db): Promise<void> {
   console.log("==========================================");
   console.log("Starting index creation...");
@@ -132,9 +92,6 @@ export async function createAllIndexes(db: Db): Promise<void> {
   }
 }
 
-/**
- * Lista todos los índices existentes en una colección
- */
 export async function listCollectionIndexes(
   db: Db,
   collectionName: string
@@ -148,9 +105,6 @@ export async function listCollectionIndexes(
   });
 }
 
-/**
- * Lista todos los índices de todas las colecciones
- */
 export async function listAllIndexes(db: Db): Promise<void> {
   console.log("\n==========================================");
   console.log("Current Database Indexes");
@@ -163,9 +117,6 @@ export async function listAllIndexes(db: Db): Promise<void> {
   console.log("\n==========================================");
 }
 
-/**
- * Elimina todos los índices de una colección (excepto _id)
- */
 export async function dropCollectionIndexes(
   db: Db,
   collectionName: string

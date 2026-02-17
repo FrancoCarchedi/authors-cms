@@ -6,7 +6,6 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/gif",
 ]
 
 /**
@@ -36,7 +35,7 @@ export async function uploadImage(file: File): Promise<string> {
  */
 export function validateImageFile(file: File): string | null {
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    return "Formato no soportado. Usa JPG, PNG, WebP o GIF."
+    return "Formato no soportado. Usa JPG, PNG o WebP."
   }
   if (file.size > MAX_FILE_SIZE) {
     return "La imagen no puede superar los 5 MB."

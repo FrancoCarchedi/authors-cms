@@ -1,56 +1,57 @@
 "use client"
 
-import { useRef, useState } from "react"
 import Image from "next/image"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useMutation } from "@tanstack/react-query"
 import { trpc } from "@/app/trpc/client"
-import { uploadImage, ACCEPTED_IMAGE_TYPES, validateImageFile } from "@/lib/upload.utils"
+import { uploadImage } from "@/lib/upload.utils"
 import { getInitials, formatDate } from "@/lib/utils"
 import { useAuthStore } from "@/hooks/use-auth-store"
+import { useImagePicker } from "@/hooks/use-image-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Camera, Loader2, X, Mail, CalendarDays } from "lucide-react"
-
-// ─── Schema ─────────────────────────────────────────────
-
-const profileFormSchema = z.object({
-  name: z
-    .string()
-    .min(2, "El nombre debe tener al menos 2 caracteres")
-    .max(100, "El nombre es demasiado largo"),
-})
-
-type ProfileFormValues = z.infer<typeof profileFormSchema>
-
-// ─── Component ──────────────────────────────────────────
-
-// ─── Component ──────────────────────────────────────────
+import {
+  ProfileFormSchema,
+  type ProfileFormValues,
+} from "@/app/(cms)/profile/schemas/profile-schema"
 
 export default function ProfilePage() {
   const { data: profile, isLoading, error } = trpc.profile.get.useQuery()
   const utils = trpc.useUtils()
   const { setUser, user: storeUser } = useAuthStore()
+  const avatar = useImagePicker()
 
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const [fileError, setFileError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const updateProfile = trpc.profile.update.useMutation()
 
-  const updateMutation = trpc.profile.update.useMutation({
-    onSuccess: () => {
+  const saveMutation = useMutation({
+    mutationFn: async (values: ProfileFormValues) => {
+      let avatarUrl: string | undefined
+
+      if (avatar.file) {
+        avatarUrl = await uploadImage(avatar.file)
+      }
+
+      await updateProfile.mutateAsync({
+        name: values.name,
+        ...(avatarUrl ? { avatarUrl } : {}),
+      })
+
+      return { name: values.name, avatarUrl }
+    },
+    onSuccess: ({ name, avatarUrl }) => {
+      avatar.clear()
       utils.profile.get.invalidate()
       utils.author.list.invalidate()
       utils.article.list.invalidate()
-      setSuccessMsg("Perfil actualizado correctamente")
-      setTimeout(() => setSuccessMsg(null), 3000)
+
+      if (storeUser) {
+        setUser({ ...storeUser, name, ...(avatarUrl ? { avatarUrl } : {}) })
+      }
     },
   })
 
@@ -58,80 +59,10 @@ export default function ProfilePage() {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
   } = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
+    resolver: zodResolver(ProfileFormSchema),
     values: profile ? { name: profile.name } : undefined,
   })
-
-  // ── File handler ──────────────────────────────────────
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ""
-
-    const validationError = validateImageFile(file)
-    if (validationError) {
-      setFileError(validationError)
-      return
-    }
-
-    setFileError(null)
-    setAvatarFile(file)
-
-    const localUrl = URL.createObjectURL(file)
-    setAvatarPreview((prev) => {
-      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev)
-      return localUrl
-    })
-  }
-
-  const clearAvatar = () => {
-    if (avatarPreview?.startsWith("blob:")) URL.revokeObjectURL(avatarPreview)
-    setAvatarPreview(null)
-    setAvatarFile(null)
-    setFileError(null)
-  }
-
-  // ── Submit ────────────────────────────────────────────
-
-  const onSubmit = async (values: ProfileFormValues) => {
-    setServerError(null)
-    setSuccessMsg(null)
-    setSubmitting(true)
-
-    try {
-      let avatarUrl: string | null | undefined = undefined
-
-      // Upload new avatar if one was selected
-      if (avatarFile) {
-        avatarUrl = await uploadImage(avatarFile)
-        setAvatarFile(null)
-        setAvatarPreview(null)
-      }
-
-      await updateMutation.mutateAsync({
-        name: values.name,
-        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-      })
-
-      // Sync the auth store so the sidebar reflects the change
-      if (storeUser) {
-        setUser({
-          ...storeUser,
-          name: values.name,
-          ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-        })
-      }
-    } catch (err) {
-      setServerError(
-        err instanceof Error ? err.message : "Error al actualizar el perfil",
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   // ── Loading state ─────────────────────────────────────
 
@@ -166,7 +97,7 @@ export default function ProfilePage() {
 
   if (!profile) return null
 
-  const displayAvatar = avatarPreview ?? profile.avatarUrl
+  const displayAvatar = avatar.preview ?? profile.avatarUrl
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -187,20 +118,14 @@ export default function ProfilePage() {
               </AvatarFallback>
             </Avatar>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(",")}
-              className="hidden"
-              onChange={handleFileChange}
-            />
+            <input {...avatar.inputProps} />
 
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={avatar.pick}
             >
               <Camera className="h-4 w-4" />
             </Button>
@@ -220,11 +145,11 @@ export default function ProfilePage() {
         </div>
 
         {/* Avatar preview feedback */}
-        {avatarPreview && (
+        {avatar.preview && (
           <div className="flex items-center gap-3 rounded-md border border-dashed p-3">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full">
               <Image
-                src={avatarPreview}
+                src={avatar.preview}
                 alt="Nueva foto"
                 fill
                 className="object-cover"
@@ -239,18 +164,21 @@ export default function ProfilePage() {
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={clearAvatar}
+              onClick={avatar.clear}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         )}
-        {fileError && (
-          <p className="text-sm text-destructive">{fileError}</p>
+        {avatar.error && (
+          <p className="text-sm text-destructive">{avatar.error}</p>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form
+          onSubmit={handleSubmit((v) => saveMutation.mutate(v))}
+          className="space-y-6"
+        >
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input
@@ -277,16 +205,20 @@ export default function ProfilePage() {
           </div>
 
           {/* Server feedback */}
-          {serverError && (
-            <p className="text-sm text-destructive">{serverError}</p>
+          {saveMutation.error && (
+            <p className="text-sm text-destructive">
+              {saveMutation.error.message}
+            </p>
           )}
-          {successMsg && (
-            <p className="text-sm text-green-600">{successMsg}</p>
+          {saveMutation.isSuccess && (
+            <p className="text-sm text-green-600">
+              Perfil actualizado correctamente
+            </p>
           )}
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={submitting}>
-              {submitting && (
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Guardar cambios

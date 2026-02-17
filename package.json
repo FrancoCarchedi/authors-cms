@@ -2,7 +2,7 @@
   "name": "wortise-challenge",
   "version": "0.1.0",
   "engines": {
-    "node": "20.16.0"
+    "node": "22.16.0"
   },
   "private": true,
   "scripts": {
@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:init": "tsx scripts/init-db.ts"
+    "db:init": "tsx scripts/init-db.ts",
+    "db:drop": "tsx scripts/drop-collections.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
