@@ -37,7 +37,7 @@ Configura las siguientes variables:
 
 ```env
 MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB=wortise-cms
+MONGODB_DB=authors-cms
 BLOB_READ_WRITE_TOKEN=your_blob_token_here
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 ```

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from "react"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
@@ -22,13 +23,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { authClient } from "@/lib/auth-client"
 import { useAuthStore } from "@/hooks/use-auth-store"
-import { trpc } from "@/app/trpc/client"
 import {
   LoginSchema,
   RegisterSchema,
   type RegisterInput,
 } from "../schemas/auth-schema"
 import { useRouter, useSearchParams } from "next/navigation"
+import { GoogleIcon } from "./GoogleIcon"
 
 interface AuthProps {
   typeForm?: "login" | "register"
@@ -49,7 +50,7 @@ function setUserFromResponse(
 
 export function AuthForm({ className, typeForm = "login", ...props }: AuthProps) {
   const setUser = useAuthStore((s) => s.setUser)
-  const createAuthor = trpc.author.create.useMutation()
+  const [googleLoading, setGoogleLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
@@ -70,6 +71,51 @@ export function AuthForm({ className, typeForm = "login", ...props }: AuthProps)
     },
   })
 
+  const handleGooglePopup = async () => {
+    setGoogleLoading(true)
+    try {
+      const res = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/auth/popup-close",
+        disableRedirect: true,
+      })
+
+      const authUrl = res.data?.url
+      if (!authUrl) return
+
+      const width = 500
+      const height = 600
+      const left = window.screenX + (window.outerWidth - width) / 2
+      const top = window.screenY + (window.outerHeight - height) / 2
+      const popup = window.open(
+        authUrl,
+        "google-auth",
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`,
+      )
+
+      const timer = setInterval(async () => {
+        if (!popup || popup.closed) {
+          clearInterval(timer)
+          const session = await authClient.getSession()
+          if (session.data?.user) {
+            const u = session.data.user
+            setUser({
+              id: u.id,
+              name: u.name,
+              email: u.email ?? "",
+              avatarUrl: u.image,
+            })
+            router.push(callbackUrl)
+          } else {
+            setGoogleLoading(false)
+          }
+        }
+      }, 500)
+    } catch {
+      setGoogleLoading(false)
+    }
+  }
+
   const authMutation = useMutation({
     mutationFn: async (data: RegisterInput) => {
       if (isRegister) {
@@ -83,12 +129,6 @@ export function AuthForm({ className, typeForm = "login", ...props }: AuthProps)
 
         const user = res.data!.user
         setUserFromResponse(setUser, user as typeof user & Record<string, unknown>)
-
-        await createAuthor.mutateAsync({
-          userId: user.id,
-          name: user.name,
-          avatarUrl: user.image,
-        })
       } else {
         const { email, password } = data
 
@@ -165,17 +205,45 @@ export function AuthForm({ className, typeForm = "login", ...props }: AuthProps)
                       ? "Registrar"
                       : "Iniciar sesión"}
                 </Button>
-                <FieldDescription className="text-center">
-                  {isRegister
-                    ? "¿Ya tienes una cuenta? "
-                    : "¿No tienes una cuenta? "}
-                  <a href={isRegister ? "/auth/sign-in" : "/auth/sign-up"}>
-                    {isRegister ? "Inicia sesión" : "Regístrate"}
-                  </a>
-                </FieldDescription>
+                
               </Field>
             </FieldGroup>
           </form>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">o continuar con</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full cursor-pointer mb-3"
+            disabled={googleLoading}
+            onClick={handleGooglePopup}
+          >
+            {/* <svg role="img" viewBox="0 0 24 24" className="mr-2 h-4 w-4">
+              <path
+                fill="currentColor"
+                d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+              />
+            </svg> */}
+            <GoogleIcon />
+            {googleLoading ? "Cargando..." : "Google"}
+          </Button>
+
+          <FieldDescription className="text-center">
+            {isRegister
+              ? "¿Ya tienes una cuenta? "
+              : "¿No tienes una cuenta? "}
+            <a href={isRegister ? "/auth/sign-in" : "/auth/sign-up"}>
+              {isRegister ? "Inicia sesión" : "Regístrate"}
+            </a>
+          </FieldDescription>
         </CardContent>
       </Card>
     </div>

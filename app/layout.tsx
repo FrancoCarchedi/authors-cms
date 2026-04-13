@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CMS Autores y Artículos - Wortise Challenge",
-  description: "Un sistema de gestión de contenido (CMS) para autores y artículos, desarrollado como parte del desafío técnico de Wortise. Permite a los usuarios crear, editar y publicar artículos, así como gestionar sus perfiles de autor. Construido con Next.js, MongoDB y Zod para validación de datos.",
+  title: "CMS Autores y Artículos - App Challenge",
+  description: "Un sistema de gestión de contenido (CMS) para autores y artículos, desarrollado como parte de un challenge. Permite a los usuarios crear, editar y publicar artículos, así como gestionar sus perfiles de autor. Construido con Next.js, MongoDB y Zod para validación de datos.",
 };
 
 export default function RootLayout({

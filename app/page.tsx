@@ -58,7 +58,7 @@ export default function Home() {
 
       {/* Footer */}
       <p className="absolute bottom-6 text-xs text-muted-foreground">
-        Wortise Challenge &middot; Next.js &middot; MongoDB &middot; tRPC
+        App Challenge &middot; Next.js &middot; MongoDB &middot; tRPC
       </p>
     </div>
   )
